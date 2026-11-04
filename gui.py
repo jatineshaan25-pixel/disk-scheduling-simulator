@@ -1,31 +1,63 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from algorithms import fcfs, sstf, scan, c_scan
+from visualizer import calculate_metrics, plot_path, plot_comparison
 
 
-def run_algorithm():
+def read_inputs():
     try:
         requests = [int(x) for x in entry_requests.get().split(",")]
         head = int(entry_head.get())
         disk_size = int(entry_disk.get())
     except ValueError:
         messagebox.showerror("Error", "Please enter valid numbers")
-        return
+        return None
+    if disk_size <= 0 or head < 0 or head >= disk_size:
+        messagebox.showerror("Error", "Head must be inside the disk")
+        return None
+    for r in requests:
+        if r < 0 or r >= disk_size:
+            messagebox.showerror("Error", "Every request must be between 0 and " + str(disk_size - 1))
+            return None
+    return requests, head, disk_size
 
-    choice = combo_algo.get()
+
+def get_result(choice, requests, head, disk_size):
     if choice == "FCFS":
-        result = fcfs(requests, head)
+        return fcfs(requests, head)
     elif choice == "SSTF":
-        result = sstf(requests, head)
+        return sstf(requests, head)
     elif choice == "SCAN":
-        result = scan(requests, head, disk_size, "up")
+        return scan(requests, head, disk_size, "up")
     else:
-        result = c_scan(requests, head, disk_size)
+        return c_scan(requests, head, disk_size)
 
-    avg = result["total_seek"] / len(requests)
+
+def run_algorithm():
+    data = read_inputs()
+    if data is None:
+        return
+    requests, head, disk_size = data
+    choice = combo_algo.get()
+    result = get_result(choice, requests, head, disk_size)
+    m = calculate_metrics(result, len(requests))
     label_result.config(
-        text="Total seek: " + str(result["total_seek"]) + "   Average: " + str(round(avg, 2))
+        text="Total seek: " + str(m["total"])
+        + "   Average: " + str(m["average"])
+        + "   Throughput: " + str(m["throughput"])
     )
+    plot_path(result["path"], choice + " head movement", disk_size)
+
+
+def compare_all():
+    data = read_inputs()
+    if data is None:
+        return
+    requests, head, disk_size = data
+    results = {}
+    for name in ["FCFS", "SSTF", "SCAN", "C-SCAN"]:
+        results[name] = get_result(name, requests, head, disk_size)
+    plot_comparison(results)
 
 
 root = tk.Tk()
@@ -48,7 +80,8 @@ combo_algo = ttk.Combobox(root, values=["FCFS", "SSTF", "SCAN", "C-SCAN"])
 combo_algo.current(0)
 combo_algo.grid(row=3, column=1)
 
-tk.Button(root, text="Run", command=run_algorithm).grid(row=4, column=0, columnspan=2)
+tk.Button(root, text="Run", command=run_algorithm).grid(row=4, column=0)
+tk.Button(root, text="Compare All", command=compare_all).grid(row=4, column=1)
 
 label_result = tk.Label(root, text="")
 label_result.grid(row=5, column=0, columnspan=2)
